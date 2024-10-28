@@ -336,5 +336,5 @@ def test5():
 
 
 # Run the Flask app
-if __name__ == "__main__":
-    app.run(debug=True, port=10001, host="0.0.0.0")
+if __name__ == '__main__':
+    app.run(debug=True)
