@@ -1,6 +1,7 @@
 const axios = require('axios');
 const express = require('express');
-const url = "http://127.0.0.1:10001/";
+// const url = "http://127.0.0.1:10001/";
+const url = "https://iare-compete-python-scrapper.vercel.app/";
 const morgan = require('morgan')
 const turso = require('./db/config')
 const cors = require('cors')
