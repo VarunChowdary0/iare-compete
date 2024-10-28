@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+# from flask_cors import CORS
 from bs4 import BeautifulSoup
 import requests
 # from warnings import filterwarnings
@@ -260,7 +260,7 @@ class Scrapper():
             return myDct
 
 app = Flask("MyApp")
-CORS(app)
+# CORS(app)
 
 @app.route('/empty_cc_failed', methods=['POST','GET'])
 def clear_Aa():
