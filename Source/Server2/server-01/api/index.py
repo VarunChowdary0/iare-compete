@@ -98,30 +98,18 @@ class Scrapper():
     def get_geekForGeeks(self):
         if self.response.status_code == 200:
             soup = BeautifulSoup(self.response.content, 'html.parser')
-            rank = soup.find("span", class_="educationDetails_head_left_userRankContainer--text__wt81s")
-            if rank:
-                rank = rank.b
 
             MyDict = {
                 "username": "",
-                "Rank": int(rank.text.strip('Rank')) if rank and rank.text.strip('Rank').isdigit() else -1,
+                "Rank": -1,
                 "score": -1,
-                "problems_solved": -1,
-                "contest_rating": -1,
+                "problems_solved": 0,
+                "contest_rating": 0,
                 "college": None
             }
 
             scores = soup.find_all('div', class_="scoreCard_head_left--score__oSi_x")
             if scores:
-                
-                MyDict = {
-                    "username": "",
-                    "Rank": int(rank.text.strip('Rank')) if rank and rank.text.strip('Rank').isdigit() else -1,
-                    "score": 0,
-                    "problems_solved": 0,
-                    "contest_rating": 0,
-                    "college": None
-                }
                 # Check if the score text can be converted to an integer
                 print(scores[0].text)
                 if scores[0].text == '__':
@@ -131,7 +119,7 @@ class Scrapper():
                 MyDict["problems_solved"] = int(scores[1].text.strip()) if len(scores) > 1 and scores[1].text.strip().isdigit() else -1
                 # For contest_rating, check if it is not "__" or other invalid values
                 contest_rating_text = scores[2].text.strip() if len(scores) > 2 else None
-                MyDict["contest_rating"] = int(contest_rating_text) if contest_rating_text and contest_rating_text.isdigit() else -1
+                MyDict["contest_rating"] = int(contest_rating_text) if contest_rating_text and contest_rating_text.isdigit() else 0
 
             college_res = soup.find('div', class_="educationDetails_head_left--text__tgi9I")
             MyDict['college'] = college_res.text.strip() if college_res else None
@@ -143,10 +131,18 @@ class Scrapper():
                 # Set all values to -1 if the username does not exist
                 MyDict = {key: -1 if isinstance(value, int) else None for key, value in MyDict.items()}
                 MyDict['username'] = ""
+            
+            # collageName = soup.find('div',class_="educationDetails_head_left--text__tgi9I")
+            # if collageName:
+            #     print(collageName.text)
+            #     MyDict['college'] = collageName.text
+            rank = soup.find("span", class_="educationDetails_head_left_userRankContainer--text__wt81s")
 
+            if rank:
+                MyDict['Rank']= int(rank.b.text.strip(" Rank"))
             return MyDict
         else:
-            return {"error": "Error fetching the URL"}
+            return {"error": "Error fetching the URL"+str(self.response.status_code)}
 
             
     def get_CodeChef(self, username):
@@ -166,20 +162,30 @@ class Scrapper():
         }
 
         # Helper function to extract numeric values safely
-        def extract_numeric_value(text, prefix):
-            if text.startswith(prefix):
-                value = text[len(prefix):].strip()
-                return int(value) if value.isdigit() else 0
-            return -1
+        # def extract_numeric_value(text, prefix):
+        #     if text.startswith(prefix):
+        #         value = text[len(prefix):].strip()
+        #         return int(value) if value.isdigit() else 0
+        #     return -1
 
         # Extracting problems solved and contests
         res = soup.find("section", class_="rating-data-section problems-solved")
+        h3 = (res.find_all('h3'))
         if res:
-            res2 = res.find_all("h3")
-            for h3_tag in res2:
-                text = h3_tag.text.strip()
-                myDict['problems-Solved'] = extract_numeric_value(text, "Total Problems Solved:") if "Total Problems Solved" in text else myDict['problems-Solved']
-                myDict['contests'] = extract_numeric_value(text, "Contests (") if "Contests" in text else myDict['contests']
+            for i in h3:
+                print(i.text)
+                if str(i.text).startswith('Contests'):
+                    print("Contests: ",str(i.text).lstrip("Contests (").rstrip(') '))
+                    myDict['contests'] = int(str(i.text).lstrip("Contests (").rstrip(') '))
+                if str(i.text).startswith('Total Problems Solved:'):
+                    print("Total Problems Solved: : ",str(i.text).lstrip("Total Problems Solved:").rstrip(') '))
+                    myDict['problems-Solved'] = int(str(i.text).lstrip("Total Problems Solved:").rstrip(') '))
+                
+            # res2 = res.find_all("h3")
+            # for h3_tag in res2:
+            #     text = h3_tag.text.strip()
+            #     myDict['problems-Solved'] = extract_numeric_value(text, "Total Problems Solved:") if "Total Problems Solved" in text else myDict['problems-Solved']
+            #     myDict['contests'] = extract_numeric_value(text, "Contests (") if "Contests" in text else myDict['contests']
 
         # Extracting the name
         res_name = soup.find('h1', class_="h2-style")
@@ -337,4 +343,4 @@ def test5():
 
 # Run the Flask app
 # if __name__ == '__main__':
-#     app.run(debug=True)
+#     app.run(debug=True,host="0.0.0.0")

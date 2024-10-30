@@ -1,6 +1,6 @@
 const axios = require('axios');
 const express = require('express');
-// const url = "http://127.0.0.1:10001/";
+// const url = "http://127.0.0.1:5000/";
 const url = "https://iare-compete-python-scrapper.vercel.app/";
 const morgan = require('morgan')
 const turso = require('./db/config')
@@ -307,6 +307,121 @@ app.get("/update_all", (req, res) => {
     
 });
 
+app.post("/get-user-data",(req,res)=>{
+    const {roll} = req.body;
+    console.log(req.body)
+    turso.execute(
+        {
+            sql:` 
+    SELECT 
+    sd.RollNumber AS RollUMN,
+    sd.Name,
+    sd.department,
+    lc.Username AS lc_username,
+    COALESCE(lc.EasyProblemSolved, 0) AS lc_easy,
+    COALESCE(lc.MediumProblemSolved, 0) AS lc_medium,
+    COALESCE(lc.HardProblemSolved, 0) AS lc_hard,
+    cc.Contests AS cc_contests,
+    COALESCE(cc.ProblemSolved, 0) AS cc_problemsolved,
+    cc.Username AS cc_username,
+    hr.Username AS hrc_username,
+    COALESCE(hr.oneStarBadge, 0) AS hrc_oneStarBadge,
+    COALESCE(hr.twoStarBadge, 0) AS hrc_twoStarBadge,
+    COALESCE(hr.threeStarBadge, 0) AS hrc_threeStarBadge,
+    COALESCE(hr.fourStarBadge, 0) AS hrc_fourStarBadge,
+    COALESCE(hr.fiveStarBadge, 0) AS hrc_fiveStarBadge,
+    COALESCE(hr.AdvancedCertifications, 0) AS hrc_AdvancedCertifications,
+    COALESCE(hr.IntermediateCertifications, 0) AS hrc_IntermediateCertifications,
+    COALESCE(hr.BasicCertifications, 0) AS hrc_BasicCertifications,
+    gfg.Username AS gfg_username,
+    COALESCE(gfg.Rank_, 0) AS gfg_rank,
+    COALESCE(gfg.ProblemSolved, 0) AS gfg_problemSolved,
+    COALESCE(gfg.ContestRating, 0) AS gfg_contestRating,
+    COALESCE(gfg.Score, 0) AS gfg_score,
+    ( (COALESCE(lc.EasyProblemSolved, 0) * 1) +
+        (COALESCE(lc.MediumProblemSolved, 0) * 3) +
+        (COALESCE(lc.HardProblemSolved, 0) * 5) ) AS LC_S,
+    ((COALESCE(cc.Contests, 0) * 5) +
+            (COALESCE(cc.ProblemSolved, 0))) AS CC_S,
+    ( (COALESCE(gfg.Score, 0)) ) AS GFG_S,
+    
+    (
+            (COALESCE(hr.oneStarBadge, 0) * 1) +
+            (COALESCE(hr.twoStarBadge, 0) * 2) +
+            (COALESCE(hr.threeStarBadge, 0) * 3) +
+            (COALESCE(hr.fourStarBadge, 0) * 4) +
+            (COALESCE(hr.fiveStarBadge, 0) * 5) +
+            (COALESCE(hr.AdvancedCertifications, 0) * 7) +
+            (COALESCE(hr.IntermediateCertifications, 0) * 5) +
+            (COALESCE(hr.BasicCertifications, 0) * 3)
+    ) AS HRC_S,
+    (
+       ( (COALESCE(lc.EasyProblemSolved, 0) * 1) +
+        (COALESCE(lc.MediumProblemSolved, 0) * 3) +
+        (COALESCE(lc.HardProblemSolved, 0) * 5) )+
+
+        ((COALESCE(cc.Contests, 0) * 5) +
+        (COALESCE(cc.ProblemSolved, 0)) )+
+       ( (COALESCE(gfg.Score, 0))) +
+       ( (COALESCE(hr.oneStarBadge, 0) * 1) +
+        (COALESCE(hr.twoStarBadge, 0) * 2) +
+        (COALESCE(hr.threeStarBadge, 0) * 3) +
+        (COALESCE(hr.fourStarBadge, 0) * 4) +
+        (COALESCE(hr.fiveStarBadge, 0) * 5) +
+        (COALESCE(hr.AdvancedCertifications, 0) * 7) +
+        (COALESCE(hr.IntermediateCertifications, 0) * 5) +
+        (COALESCE(hr.BasicCertifications, 0) * 3))
+    ) AS OverallScore,
+    RANK() OVER (ORDER BY 
+        (
+            (COALESCE(lc.EasyProblemSolved, 0) * 1) +
+            (COALESCE(lc.MediumProblemSolved, 0) * 3) +
+            (COALESCE(lc.HardProblemSolved, 0) * 5) +
+            (COALESCE(cc.Contests, 0) * 5) +
+            (COALESCE(cc.ProblemSolved, 0)) +
+            (COALESCE(gfg.Score, 0)) +
+            (COALESCE(hr.oneStarBadge, 0) * 1) +
+            (COALESCE(hr.twoStarBadge, 0) * 2) +
+            (COALESCE(hr.threeStarBadge, 0) * 3) +
+            (COALESCE(hr.fourStarBadge, 0) * 4) +
+            (COALESCE(hr.fiveStarBadge, 0) * 5) +
+            (COALESCE(hr.AdvancedCertifications, 0) * 7) +
+            (COALESCE(hr.IntermediateCertifications, 0) * 5) +
+            (COALESCE(hr.BasicCertifications, 0) * 3)
+        ) DESC
+    ) AS rank
+        FROM 
+            Student_Data sd
+        LEFT JOIN 
+            LeetCode lc ON sd.RollNumber = lc.RollNumber
+        LEFT JOIN 
+            CodeChef cc ON sd.RollNumber = cc.RollNumber
+        LEFT JOIN 
+            HackerRank hr ON sd.RollNumber = hr.RollNumber
+        LEFT JOIN 
+            GeekForGeeks gfg ON sd.RollNumber = gfg.RollNumber
+        WHERE sd.RollNumber LIKE (:roll);
+            `,
+            args : {roll:roll}
+        }
+    )
+    .then((resp)=>{
+        if(resp.rows.length===1){
+            res.status(200).json(resp.rows);
+        }else{
+            if(resp.rows.length>1){
+                res.status(400).json({'message':'Multiple Users!'})
+            }
+            else{
+                res.status(400).json({'message':' Users not found'})
+            }
+        }
+    })
+    .catch((err)=>{
+        console.log(err);
+        res.status(400).json({'message':' Please Try later!'})
+    })
+})
 
 app.get('/get-all-data',(req,res)=>{
     turso.execute(
@@ -785,6 +900,7 @@ const delete_user = (RollNumber) => {
         console.log(err.message);
     })
 }
+
 app.post('/register',(req,res)=>{
     const { RollNumber,Name,Department,leetcode,CodeChef,HackerRank,GfG,Password } = req.body;
     turso.execute({
