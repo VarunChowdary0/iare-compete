@@ -1,7 +1,7 @@
 const axios = require('axios');
 const express = require('express');
-// const url = "http://127.0.0.1:5000/";
-const url = "https://iare-compete-python-scrapper.vercel.app/";
+const url = "http://127.0.0.1:5000/";
+// const url = "https://iare-compete-python-scrapper.vercel.app/";
 const morgan = require('morgan')
 const turso = require('./db/config')
 const cors = require('cors')
@@ -942,8 +942,21 @@ app.post('/register',(req,res)=>{
                                 `
                             )
                             .then((res001)=>{
-                                console.log(RollNumber,'- Registration Completed');
-                                res.status(200).json({'message':'OK'});
+                                turso.execute({
+                                    sql :`
+                                    INSERT INTO Personal_Info (RollNumber)
+                                    VALUES(:RollNumber);`,
+                                    args:{RollNumber:RollNumber}
+                                })
+                                .then((res0038)=>{
+                                    console.log(RollNumber,'- Registration Completed');
+                                    res.status(200).json({'message':'OK'});
+                                })
+                                .catch((err0033)=>{
+                                    console.log(err0033.message);
+                                    delete_user(RollNumber);
+                                    res.status(400).json({'message':'Failed to create an Account, ,Please retry.'});
+                                })
                             })
                             .catch((err003)=>{
                                 console.log(err003.message);
@@ -979,6 +992,275 @@ app.post('/register',(req,res)=>{
             res.status(400).json(er.message);
         })
 })
+
+app.post('/update_password',(req,res)=>{
+    const {RollNumber,old_,new_} = req.body;
+    // console.log(old_,new_);
+    turso.execute({
+        sql:`SELECT * FROM Users WHERE RollNumber = (:RollNumber) ;`,
+        args:{RollNumber:RollNumber}
+    })
+    .then((res0)=>{
+        if(res0.rows.length === 1){
+            if(res0.rows[0].Password === old_){
+                console.log('User'+RollNumber+' -> OK');
+                turso.execute({
+                    sql:`
+                        UPDATE Users
+                        SET Password = (:new_) 
+                        WHERE RollNumber = (:RollNumber);`,
+                    args : { new_ : new_ , RollNumber:RollNumber}
+                })
+                .then((Res1)=>{
+                    console.log(Res1.rows[0])
+                    res.status(200).json({'message':'Updated Successfully'});
+                })
+                .catch((err0)=>{
+                    console.log(err0)
+                    res.status(500).json({'message':'Something went wrong'});
+                })
+            }
+            else{
+                res.status(400).json({'message':'Wrong Password'});
+            }
+        }
+        else{
+            res.status(404).json({'message':'User not found'});
+        }
+    })
+    .catch((err0)=>{
+        console.log(err0)
+        res.status(500).json({'message':'Something went wrong'});
+    })
+})
+app.post('/get_skills', (req, res) => {
+    const { rollNumber } = req.body;
+    // console.log(rollNumber)
+
+    turso.execute({
+        sql: `SELECT Skill FROM Skills WHERE RollNumber = (:rollNumber);`,
+        args: { rollNumber }
+    })
+    .then((result) => {
+        // console.log(result.rows)
+        res.status(200).json({ skills:result.rows });
+    })
+    .catch((error) => {
+        console.error("Error retrieving skills:", error.message);
+        res.status(500).json({ message: 'Internal server error.' });
+    });
+});
+
+app.post('/add_skill', (req, res) => {
+    const { RollNumber, Skill } = req.body;
+    // console.log(RollNumber,Skill)
+    if (!RollNumber || !Skill) {
+        return res.status(400).json({ message: 'RollNumber and Skill are required.' });
+    }
+
+    turso.execute({
+        sql: `INSERT INTO Skills (RollNumber, Skill) VALUES (:rollNumber, :skill);`,
+        args: { rollNumber: RollNumber, skill: Skill }
+    })
+    .then(() => {
+        res.status(201).json({ message: 'Skill added successfully.' });
+    })
+    .catch((error) => {
+        console.error("Error adding skill:", error.message);
+        res.status(500).json({ message: 'Internal server error.' });
+    });
+});
+
+app.post('/remove_skill', (req, res) => {
+    const { RollNumber, Skill } = req.body;
+
+    turso.execute({
+        sql: `
+            DELETE FROM Skills
+            WHERE RollNumber = :rollNumber AND Skill = :skill;
+        `,
+        args: { rollNumber: RollNumber, skill: Skill }
+    })
+    .then((response) => {
+        if (response.rowsAffected > 0) {
+            console.log(`Skill "${Skill}" removed successfully for RollNumber ${RollNumber}`);
+            res.status(200).json({ message: 'Skill removed successfully' });
+        } else {
+            console.log(`Skill "${Skill}" not found for RollNumber ${RollNumber}`);
+            res.status(404).json({ message: 'Skill not found' });
+        }
+    })
+    .catch((err) => {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to remove skill, please try again.' });
+    });
+});
+
+
+app.post('/get_data_for_settings',(req,res)=>{  
+    const {RollNumber} = req.body;
+    console.log(RollNumber);
+    turso.execute(`
+        SELECT 
+            P.About,
+            P.FaceBook,
+            P.GitHub,
+            P.Instagram,
+            P.LinkedIN,
+            P.MailAddress,
+            P.Resume,
+            P.YouTube,
+            P.X,
+            L.Username AS LeetCodeUsername,
+            C.Username AS CodeChefUsername,
+            H.Username AS HackerRankUsername,
+            G.Username AS GeekForGeeksUsername,
+            U.Name AS Name,
+            U.Department AS Department
+        FROM 
+            Personal_Info AS P
+        LEFT JOIN 
+            LeetCode AS L ON P.RollNumber = L.RollNumber
+        LEFT JOIN 
+            CodeChef AS C ON P.RollNumber = C.RollNumber
+        LEFT JOIN 
+            HackerRank AS H ON P.RollNumber = H.RollNumber
+        LEFT JOIN 
+            GeekForGeeks AS G ON P.RollNumber = G.RollNumber
+        LEFT JOIN 
+            Student_Data AS U ON P.RollNumber = U.RollNumber
+        WHERE 
+            P.RollNumber = :rollNumber;
+    `, { rollNumber: RollNumber })
+    .then((resp0)=>{
+        console.log(resp0.rows);
+        res.status(200).json(resp0.rows);
+    })
+    .catch((Err)=>{
+        console.log(Err);
+        res.status(500).json({'message':'Failed'});
+    })
+    
+})
+
+app.post('/update_personal_data', (req, res) => {
+    const { 
+        RollNumber, 
+        About, 
+        CodeChefUsername, 
+        Department, 
+        Facebook, 
+        GeekForGeeksUsername, 
+        Github, 
+        HackerRankUsername, 
+        Instagram, 
+        LeetCodeUsername, 
+        LinkedIn, 
+        MailAddress, 
+        Name, 
+        Youtube,
+        Resume, 
+        X 
+    } = req.body;
+
+    console.log(MailAddress,About)
+
+    turso.execute({
+        sql: `
+        UPDATE Personal_Info
+        SET 
+            About = (:About),
+            Facebook = (:Facebook),
+            Github = (:Github),
+            Instagram = (:Instagram),
+            LinkedIn = (:LinkedIn),
+            YouTube = (:Youtube),
+            MailAddress = (:MailAddress),
+            Resume = (:Resume),
+            X = (:X)
+        WHERE RollNumber = (:RollNumber);
+        `,
+        args: {About:About,
+            Facebook:Facebook,
+            Instagram:Instagram,
+            Github:Github,
+            LinkedIn:LinkedIn,
+            MailAddress:MailAddress,
+            Resume:Resume,
+            X:X,
+            Youtube:Youtube,
+            RollNumber:RollNumber
+        }
+    })
+    .then(result => {
+        if (result.rowsAffected === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        console.log(result)
+        res.status(200).json({ message: 'Personal info updated successfully' });
+    })
+    .catch(error => {
+        console.error("Database error:", error);  // Log detailed error
+        res.status(500).json({ message: 'Internal server error' });
+    });
+});
+
+app.post('/update_usernames', (req, res) => {
+    const { RollNumber, lc_username, cc_username, gfg_username, hrc_username } = req.body;
+    if (!RollNumber) {
+        return res.status(400).json({ 'message': 'RollNumber is required' });
+    }
+    console.log('Received usernames:', lc_username, cc_username, gfg_username, hrc_username);
+    turso.execute({
+            sql: `UPDATE LeetCode SET Username = (:lc_username) WHERE RollNumber = (:RollNumber);`,
+            args: { lc_username, RollNumber }
+        })
+    .then(() => {
+        
+        turso.execute( {
+            sql: `UPDATE CodeChef SET Username = (:cc_username) WHERE RollNumber = (:RollNumber);`,
+            args: { cc_username, RollNumber }
+        })
+        .then(()=>{
+            turso.execute(
+                {
+                    sql: `UPDATE GeekForGeeks SET Username = (:gfg_username) WHERE RollNumber = (:RollNumber);`,
+                    args: { gfg_username, RollNumber }
+                })
+            .then(()=>{
+                turso.execute(
+                    {
+                        sql: `UPDATE HackerRank SET Username = (:hrc_username) WHERE RollNumber = (:RollNumber);`,
+                        args: { hrc_username, RollNumber }
+                    })
+                    .then((rr)=>{
+                        console.log(`Usernames updated for RollNumber ${RollNumber}`,rr);
+                        res.status(200).json({ 'message': 'Usernames updated successfully across all platforms' });
+                    })
+                    .catch((er089)=>{
+                        console.log(er089);
+                        res.status(500).json({ 'message': 'Failed to update usernames' });
+                    })
+            })
+            .catch((err12)=>{
+                console.log((err12));
+                res.status(500).json({ 'message': 'Failed to update usernames' });
+            })
+            
+        })
+        .catch((err01)=>{
+                console.log(err01);
+                res.status(500).json({ 'message': 'Failed to update usernames' });
+
+        })
+    })
+    .catch((error) => {
+        console.error('Error updating usernames:', error);
+        res.status(500).json({ 'message': 'Failed to update usernames' });
+    });
+});
+
+
 
 app.listen(4300, () => {
     console.log("Server running on port", 4300);
